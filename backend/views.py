@@ -2,6 +2,7 @@ from django.http import HttpResponse
 from django.http import HttpResponse
 import stripe
 import io
+import uuid
 import os
 from dotenv import load_dotenv
 from collections import defaultdict
@@ -129,6 +130,43 @@ def log_in_user(request):
                     "email": email,
                     "stripe_customer_id": stripe_id
                 },
+            },
+            status=201,
+        )
+    else:
+        return JsonResponse(
+            {"error": "Only POST requests are allowed"},
+            status=405,
+        )
+
+@csrf_exempt
+def save_form_data(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)  # Parse the JSON body of the request
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON data"}, status=400)
+
+        print(data)
+        questions = data.get("data")
+        form_id = str(uuid.uuid4())
+        form_url = "http://localhost:5000/" + form_id
+        # Need to add this for auth users... do i need to?
+        
+        # supabase.table('form_data').insert({
+        #     'form_data': questions,  # save questions
+        #     'form_id': form_id,  # form_id
+        #     'form_url': form_url
+        # }).execute()
+        supabase.table('form_data_customers').insert({
+            'form_data': questions,  # save questions
+            'form_id': form_id,  # form_id
+            'form_url': form_url
+        }).execute()
+
+        return JsonResponse(
+            {
+                "message": "Form Created.",
             },
             status=201,
         )
