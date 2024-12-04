@@ -150,9 +150,9 @@ def save_form_data(request):
         print(data)
         questions = data.get("data")
         form_id = str(uuid.uuid4())
-        form_url = "http://localhost:5000/" + form_id
+        form_url = "http://localhost:5200/" + form_id
         # Need to add this for auth users... do i need to?
-        
+
         # supabase.table('form_data').insert({
         #     'form_data': questions,  # save questions
         #     'form_id': form_id,  # form_id
@@ -175,3 +175,16 @@ def save_form_data(request):
             {"error": "Only POST requests are allowed"},
             status=405,
         )
+    
+@csrf_exempt
+def get_form_by_url(request, slug):
+    try:
+        # Retrieve the user data using the email
+        form_url = "http://localhost:5200/" + slug
+        response = supabase.table("form_data_customers").select("*").eq('form_url', form_url).execute()
+        data_to_return = response.data[0]['form_data']
+        print(data_to_return)
+        return JsonResponse({"content": data_to_return}, status=200)
+
+    except ObjectDoesNotExist:
+        return JsonResponse({"error": "User not found"}, status=404)
