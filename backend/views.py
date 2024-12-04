@@ -25,13 +25,6 @@ from langchain_openai import ChatOpenAI
 from langchain.agents.agent_types import AgentType
 from langchain_experimental.agents.agent_toolkits import create_csv_agent
 import pickle
-from .serializers import (
-    UserSerializer,
-)
-
-from .models import (
-    CustomUser
-)
 # from langchain.vectorstores import FAISS
 # from langchain.embeddings import OpenAIEmbeddings
 from langchain.chains import RetrievalQA
@@ -52,3 +45,95 @@ from token_count import TokenCount
 from datetime import datetime
 import pytz
 from twilio.rest import Client
+
+url: str = settings.SUPABASE_URL
+key: str = settings.SUPABASE_KEY
+supabase: Client = create_client(url, key)
+
+
+
+@csrf_exempt
+def sign_up_user(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)  # Parse the JSON body of the request
+        except json.JSONDecodeError:
+            return JsonResponse(
+                {"error": "Invalid JSON data"}, status=400
+            )
+
+        email = data.get("email")
+        password = data.get("password")
+
+        # Step 1: Use Supabase's auth.sign_up to create the user
+        response = supabase.auth.sign_up({
+            "email": email,
+            "password": password,
+        })
+
+        # Step 2: Extract user details from the response
+        user_data = response.user
+        user_id = user_data.id  # Supabase user ID (UUID)
+
+        # Step 3: Create a Stripe Customer
+        # stripe_customer = stripe.Customer.create(email=email, metadata={"supabase_user_id": user_id})
+
+        #Step 4: Initial User Data
+        insert_response = supabase.table('user_data').insert({
+            'id': user_id,  # Use the UUID from authentication
+            'email': email,  # Optional: Store email if needed
+            # 'stripe_customer_id': stripe_customer['id'],  # Store Stripe customer ID
+            'subscription_status': 'inactive',  # Default status
+        }).execute()
+
+        # Step 5: Return the response with user information
+        return JsonResponse(
+            {
+                "message": "User created successfully",
+                "user": {
+                    "id": user_id,
+                    "email": email,
+                    "stripe_customer_id": "abc",
+                },
+            },
+            status=201,
+        )
+    else:
+        return JsonResponse(
+            {"error": "Only POST requests are allowed"},
+            status=405,
+        )
+    
+
+@csrf_exempt
+def log_in_user(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)  # Parse the JSON body of the request
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON data"}, status=400)
+
+        email = data.get("email")
+        password = data.get("password")
+        response = supabase.auth.sign_in_with_password({"email": email, "password":  password})
+        user_data = response.user
+        user_id = user_data.id  # Supabase user ID (UUID)
+        response = supabase.table("user_data").select("*").eq('email', email).execute()
+        stripe_id = response.data[0]['stripe_customer_id']
+        print(stripe_id)
+        return JsonResponse(
+            {
+                "message": "User logged in successfully",
+                "user": {
+                    "id": user_id,
+                    "email": email,
+                    "stripe_customer_id": stripe_id
+                },
+            },
+            status=201,
+        )
+    else:
+        return JsonResponse(
+            {"error": "Only POST requests are allowed"},
+            status=405,
+        )
