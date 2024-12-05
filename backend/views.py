@@ -121,7 +121,6 @@ def log_in_user(request):
         user_id = user_data.id  # Supabase user ID (UUID)
         response = supabase.table("user_data").select("*").eq('email', email).execute()
         stripe_id = response.data[0]['stripe_customer_id']
-        print(stripe_id)
         return JsonResponse(
             {
                 "message": "User logged in successfully",
@@ -147,7 +146,6 @@ def save_form_data(request):
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON data"}, status=400)
 
-        print(data)
         questions = data.get("data")
         form_id = str(uuid.uuid4())
         form_url = "http://localhost:5200/" + form_id
@@ -183,8 +181,45 @@ def get_form_by_url(request, slug):
         form_url = "http://localhost:5200/" + slug
         response = supabase.table("form_data_customers").select("*").eq('form_url', form_url).execute()
         data_to_return = response.data[0]['form_data']
-        print(data_to_return)
-        return JsonResponse({"content": data_to_return}, status=200)
+        return JsonResponse({"content": data_to_return, "form_id": response.data[0]['form_id']}, status=200)
 
     except ObjectDoesNotExist:
         return JsonResponse({"error": "User not found"}, status=404)
+    
+
+
+@csrf_exempt
+def save_form_response(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)  # Parse the JSON body of the request
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON data"}, status=400)
+
+        answers = data.get("data")
+        form_id = data.get("formId")
+        form_url = "http://localhost:5200/" + form_id
+        # Need to add this for auth users... do i need to?
+
+        # supabase.table('form_data').insert({
+        #     'form_data': questions,  # save questions
+        #     'form_id': form_id,  # form_id
+        #     'form_url': form_url
+        # }).execute()
+        supabase.table('form_responses').insert({
+            'individual_responses': answers,  # save questions
+            'form_id': form_id,  # form_id
+            'form_url': form_url
+        }).execute()
+
+        return JsonResponse(
+            {
+                "message": "Response Saved.",
+            },
+            status=201,
+        )
+    else:
+        return JsonResponse(
+            {"error": "Only POST requests are allowed"},
+            status=405,
+        )
