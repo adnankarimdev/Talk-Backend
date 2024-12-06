@@ -147,15 +147,17 @@ def save_form_data(request):
             return JsonResponse({"error": "Invalid JSON data"}, status=400)
 
         questions = data.get("data")
-        form_id = str(uuid.uuid4())
+        user_id = data.get("userId")
+        form_id = data.get("formId")
         form_url = "http://localhost:5200/" + form_id
         # Need to add this for auth users... do i need to?
 
-        # supabase.table('form_data').insert({
-        #     'form_data': questions,  # save questions
-        #     'form_id': form_id,  # form_id
-        #     'form_url': form_url
-        # }).execute()
+        supabase.table('form_data').insert({
+            'form_data': questions,  # save questions
+            'form_id': form_id,  # form_id
+            'form_url': form_url,
+            'user_id': user_id
+        }).execute()
         supabase.table('form_data_customers').insert({
             'form_data': questions,  # save questions
             'form_id': form_id,  # form_id
